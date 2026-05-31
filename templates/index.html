@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard — URL Safety Checker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f4f5f7;
+      --surface:   #ffffff;
+      --border:    #dde1e7;
+      --text:      #1a1d23;
+      --muted:     #6b7280;
+      --accent:    #2563eb;
+      --danger:    #dc2626;
+      --safe:      #16a34a;
+      --warn-bg:   #fef2f2;
+      --safe-bg:   #f0fdf4;
+      --radius:    8px;
+      --shadow:    0 1px 4px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header svg { flex-shrink: 0; }
+    header h1  { font-size: 1.2rem; font-weight: 700; letter-spacing: -.3px; }
+    header p   { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      max-width: 720px;
+      width: 100%;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    /* ── Input card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .card label {
+      display: block;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .95rem;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .input-row input:focus { border-color: var(--accent); background: #fff; }
+    .input-row input::placeholder { color: #9ca3af; }
+
+    button#analyseBtn {
+      padding: 11px 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity .15s;
+    }
+    button#analyseBtn:disabled { opacity: .6; cursor: default; }
+
+    /* ── Result section ── */
+    #result { margin-top: 24px; display: none; }
+
+    .verdict-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 22px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+    }
+    .verdict-banner.phishing {
+      background: var(--warn-bg);
+      border-color: #fca5a5;
+    }
+    .verdict-banner.legitimate {
+      background: var(--safe-bg);
+      border-color: #86efac;
+    }
+
+    .verdict-icon { font-size: 2rem; line-height: 1; }
+
+    .verdict-text h2 { font-size: 1.1rem; font-weight: 700; }
+    .verdict-text p  { font-size: .85rem; color: var(--muted); margin-top: 3px; }
+    .verdict-banner.phishing  .verdict-text h2 { color: var(--danger); }
+    .verdict-banner.legitimate .verdict-text h2 { color: var(--safe); }
+
+    /* ── Confidence bar ── */
+    .confidence-section {
+      margin-top: 20px;
+      padding: 18px 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .confidence-section h3 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 10px;
+    }
+    .bar-track {
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width .5s ease;
+    }
+    .bar-fill.phishing  { background: var(--danger); }
+    .bar-fill.legitimate { background: var(--safe); }
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .8rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ── Feature breakdown ── */
+    .features-section {
+      margin-top: 20px;
+      padding: 18px 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .features-section h3 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 14px;
+    }
+
+    .feature-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .88rem;
+    }
+    .feature-row:last-child { border-bottom: none; }
+
+    .feature-name  { flex: 1; color: var(--text); }
+    .feature-value { font-family: monospace; font-size: .82rem;
+                     color: var(--muted); width: 52px; text-align: right; }
+    .feature-bar-wrap { width: 100px; }
+    .feature-bar-bg {
+      height: 6px; background: #e5e7eb;
+      border-radius: 99px; overflow: hidden;
+    }
+    .feature-bar-inner {
+      height: 100%; border-radius: 99px;
+    }
+    .feature-bar-inner.phishing   { background: var(--danger); }
+    .feature-bar-inner.legitimate { background: var(--safe); }
+
+    .direction-tag {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 99px;
+      width: 80px;
+      text-align: center;
+    }
+    .direction-tag.phishing   { background: #fee2e2; color: var(--danger); }
+    .direction-tag.legitimate { background: #dcfce7; color: var(--safe); }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      margin-top: 20px;
+      font-size: .78rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-box {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: var(--radius);
+      color: var(--danger);
+      font-size: .9rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: .78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <!-- Shield icon -->
+  <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18 3L5 8v10c0 8.3 5.6 16 13 18 7.4-2 13-9.7 13-18V8L18 3z"
+          fill="#2563eb" fill-opacity=".15" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M12 18l4 4 8-8" stroke="#2563eb" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div>
+    <h1>PhishGuard</h1>
+    <p>ML-powered phishing URL detector · BSc Cyber Security Final Project</p>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <label for="urlInput">Enter a URL to analyse</label>
+    <div class="input-row">
+      <input type="text" id="urlInput"
+             placeholder="e.g. http://suspicious-login-verify.xyz/account"
+             autocomplete="off" spellcheck="false" />
+      <button id="analyseBtn" onclick="analyse()">Analyse</button>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <p class="disclaimer">
+    Analysis is based on lexical URL features only. No page content is fetched.<br>
+    XGBoost model trained on 40,000 labelled URLs from the PhiUSIIL dataset.
+  </p>
+</main>
+
+<footer>
+  PhishGuard &mdash; BSc Cyber Security Final Project &nbsp;|&nbsp; Student ID: P2773352 &nbsp;|&nbsp;
+  XGBoost + SHAP &nbsp;|&nbsp; Accuracy: 91.5% &nbsp;|&nbsp; AUC-ROC: 0.974
+</footer>
+
+<script>
+  const input = document.getElementById('urlInput');
+  const btn   = document.getElementById('analyseBtn');
+  const result = document.getElementById('result');
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') analyse(); });
+
+  async function analyse() {
+    const url = input.value.trim();
+    if (!url) { input.focus(); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Analysing…';
+    result.style.display = 'none';
+    result.innerHTML = '';
+
+    try {
+      const res  = await fetch('/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        result.innerHTML = `<div class="error-box">⚠ ${data.error}</div>`;
+      } else {
+        result.innerHTML = renderResult(data);
+      }
+    } catch (err) {
+      result.innerHTML = `<div class="error-box">⚠ Could not reach the server. Please try again.</div>`;
+    }
+
+    result.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Analyse';
+  }
+
+  function renderResult(d) {
+    const cls   = d.is_phishing ? 'phishing' : 'legitimate';
+    const icon  = d.is_phishing ? '🚨' : '✅';
+    const label = d.is_phishing
+      ? 'Phishing URL Detected'
+      : 'URL Appears Legitimate';
+    const sub   = d.is_phishing
+      ? `Model confidence: ${d.confidence}% phishing probability`
+      : `Model confidence: ${100 - d.confidence}% legitimate probability`;
+
+    // Confidence bar: always show phishing probability
+    const barPct   = d.confidence;
+    const barClass = d.is_phishing ? 'phishing' : 'legitimate';
+
+    // Feature rows
+    const maxImpact = Math.max(...d.top_features.map(f => Math.abs(f.impact)), 0.001);
+    const featureRows = d.top_features.map(f => {
+      const pct = Math.round((Math.abs(f.impact) / maxImpact) * 100);
+      return `
+        <div class="feature-row">
+          <span class="feature-name">${f.label}</span>
+          <span class="feature-value">${formatVal(f.value)}</span>
+          <div class="feature-bar-wrap">
+            <div class="feature-bar-bg">
+              <div class="feature-bar-inner ${f.direction}" style="width:${pct}%"></div>
+            </div>
+          </div>
+          <span class="direction-tag ${f.direction}">${f.direction}</span>
+        </div>`;
+    }).join('');
+
+    const featSection = d.top_features.length > 0 ? `
+      <div class="features-section">
+        <h3>Top Contributing Features (SHAP)</h3>
+        ${featureRows}
+      </div>` : '';
+
+    return `
+      <div class="verdict-banner ${cls}">
+        <span class="verdict-icon">${icon}</span>
+        <div class="verdict-text">
+          <h2>${label}</h2>
+          <p>${sub}</p>
+        </div>
+      </div>
+
+      <div class="confidence-section">
+        <h3>Phishing Probability</h3>
+        <div class="bar-track">
+          <div class="bar-fill ${barClass}" style="width:${barPct}%"></div>
+        </div>
+        <div class="bar-label">
+          <span>0% (Legitimate)</span>
+          <span>${barPct}%</span>
+          <span>100% (Phishing)</span>
+        </div>
+      </div>
+
+      ${featSection}`;
+  }
+
+  function formatVal(v) {
+    if (typeof v === 'number') {
+      return Number.isInteger(v) ? v.toString() : v.toFixed(3);
+    }
+    return v;
+  }
+</script>
+</body>
+</html>
