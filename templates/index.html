@@ -296,12 +296,14 @@
   <div id="result"></div>
 
   <p class="disclaimer">
-  Analysis is based on lexical URL features only. No page content is fetched.
+    Analysis is based on lexical URL features only. No page content is fetched.<br>
+    XGBoost model trained on 40,000 labelled URLs from the PhiUSIIL dataset.
   </p>
 </main>
 
 <footer>
-  PhishGuard &mdash; Phishing URL Detection Tool
+  PhishGuard &mdash; BSc Cyber Security Final Project &nbsp;|&nbsp; Student ID: P2773352 &nbsp;|&nbsp;
+  XGBoost · Accuracy: 91.5% · AUC-ROC: 0.974
 </footer>
 
 <script>
@@ -375,7 +377,7 @@
 
     const featSection = d.top_features.length > 0 ? `
       <div class="features-section">
-        <h3>Top Contributing Features (SHAP)</h3>
+        <h3>Top Contributing Features</h3>
         ${featureRows}
       </div>` : '';
 

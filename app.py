@@ -62,12 +62,21 @@ KNOWN_LEGITIMATE = {
 }
 
 def _is_whitelisted(url):
-    """Return True if the URL's registered domain is in the whitelist."""
+    """
+    Return True if the hostname or any parent domain is in the whitelist.
+    e.g. neonishere.pythonanywhere.com matches pythonanywhere.com
+    """
     try:
         host = urlparse(url).hostname or ''
-        # strip www.
         bare = host.removeprefix('www.')
-        return bare in KNOWN_LEGITIMATE or host in KNOWN_LEGITIMATE
+        if bare in KNOWN_LEGITIMATE or host in KNOWN_LEGITIMATE:
+            return True
+        parts = bare.split('.')
+        for i in range(1, len(parts) - 1):
+            parent = '.'.join(parts[i:])
+            if parent in KNOWN_LEGITIMATE:
+                return True
+        return False
     except Exception:
         return False
 
