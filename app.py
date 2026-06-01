@@ -1,8 +1,9 @@
 """
 app.py  —  PhishGuard Flask backend
 """
-
 import os
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['OMP_THREAD_LIMIT'] = '1'
 import joblib
 import pandas as pd
 import numpy as np
@@ -22,6 +23,7 @@ CORS(app, resources={r"/analyse*": {"origins": "*"}})
 print("Loading PhishGuard model...")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'phishguard_model.pkl')
 model      = joblib.load(MODEL_PATH)
+model.set_params(n_jobs=1)
 
 _raw_imp  = model.feature_importances_
 _imp_norm = _raw_imp / (_raw_imp.sum() + 1e-9)
